@@ -6,6 +6,9 @@ import '../model/movie_model.dart';
 import '../model/movie_detail_model.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/ru_translator.dart';
+import '../../../../core/utils/genre_localization.dart';
+import '../../../../core/di/injection.dart';
+import '../../../../core/localization/locale_cubit.dart';
 
 class MovieRepositoryImpl implements MovieRepository {
   final ApiClient _apiClient;
@@ -18,6 +21,9 @@ class MovieRepositoryImpl implements MovieRepository {
   Future<Map<String, List<MovieEntity>>> getMoviesByGenres(
     Map<String, int> genreIds,
   ) async {
+    final isRu = getIt<LocaleCubit>().state.languageCode == 'ru';
+    final languageCode = isRu ? 'ru' : 'en';
+
     // TVMaze: load multiple pages and group by genre
     final allShows = <Map<String, dynamic>>[];
 
@@ -48,14 +54,17 @@ class MovieRepositoryImpl implements MovieRepository {
           .take(20)
           .toList();
 
-      result[genreName] = await Future.wait(
+      final localizedGenreName = localizeGenre(genreName, languageCode);
+      result[localizedGenreName] = await Future.wait(
         movies.map((m) async {
-          final ruTitle = await _translator.translateToRu(m.title);
+          final localizedTitle = isRu
+              ? await _translator.translate(m.title, targetLanguage: 'ru')
+              : m.title;
           return MovieEntity(
             id: m.id,
-            title: ruTitle,
+            title: localizedTitle,
             bannerUrl: m.bannerUrl,
-            genre: m.genre,
+            genre: localizeGenre(m.genre, languageCode),
           );
         }),
       );
@@ -66,6 +75,9 @@ class MovieRepositoryImpl implements MovieRepository {
 
   @override
   Future<MovieDetailEntity> getMovieDetail(int movieId) async {
+    final isRu = getIt<LocaleCubit>().state.languageCode == 'ru';
+    final languageCode = isRu ? 'ru' : 'en';
+
     final results = await Future.wait([
       _apiClient.dio.get<Map<String, dynamic>>('/shows/$movieId'),
       _apiClient.dio.get<List<dynamic>>('/shows/$movieId/cast'),
@@ -75,8 +87,12 @@ class MovieRepositoryImpl implements MovieRepository {
     final cast = (results[1] as Response<List<dynamic>>).data ?? [];
     final detail = MovieDetailModel.fromShowAndCast(show, cast);
 
-    final translatedTitle = await _translator.translateToRu(detail.title);
-    final translatedOverview = await _translator.translateToRu(detail.overview);
+    final translatedTitle = isRu
+        ? await _translator.translate(detail.title, targetLanguage: 'ru')
+        : detail.title;
+    final translatedOverview = isRu
+        ? await _translator.translate(detail.overview, targetLanguage: 'ru')
+        : detail.overview;
 
     return MovieDetailEntity(
       id: detail.id,
@@ -86,7 +102,7 @@ class MovieRepositoryImpl implements MovieRepository {
       voteCount: detail.voteCount,
       releaseDate: detail.releaseDate,
       runtime: detail.runtime,
-      genres: detail.genres,
+      genres: detail.genres.map((g) => localizeGenre(g, languageCode)).toList(),
       backdropPath: detail.backdropPath,
       posterPath: detail.posterPath,
       cast: detail.cast,

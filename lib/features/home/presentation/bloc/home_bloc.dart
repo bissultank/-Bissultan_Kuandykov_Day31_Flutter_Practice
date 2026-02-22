@@ -33,8 +33,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       // Remove empty genres
       movies.removeWhere((_, list) => list.isEmpty);
       emit(HomeLoaded(movies));
-    } catch (e) {
-      emit(HomeError(e.toString()));
+    } catch (_) {
+      emit(const HomeError('load_failed'));
     }
   }
 }

@@ -1,6 +1,8 @@
 import 'package:get_it/get_it.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../network/api_client.dart';
 import '../database/app_database.dart';
+import '../localization/locale_cubit.dart';
 import '../../features/home/data/repository/movie_repository_impl.dart';
 import '../../features/home/domain/repository/movie_repository.dart';
 import '../../features/home/presentation/bloc/home_bloc.dart';
@@ -8,6 +10,7 @@ import '../../features/detail/presentation/bloc/detail_bloc.dart';
 import '../../features/favorite/data/repository/favorite_repository_impl.dart';
 import '../../features/favorite/domain/repository/favorite_repository.dart';
 import '../../features/favorite/presentation/bloc/favorite_bloc.dart';
+import '../../features/auth/data/storage/token_storage.dart';
 
 final getIt = GetIt.instance;
 
@@ -15,6 +18,12 @@ void setupDependencies() {
   // Core
   getIt.registerLazySingleton<ApiClient>(() => ApiClient());
   getIt.registerLazySingleton<AppDatabase>(() => AppDatabase());
+  getIt.registerLazySingleton<FlutterSecureStorage>(
+    () => const FlutterSecureStorage(),
+  );
+  getIt.registerLazySingleton<TokenStorage>(
+    () => TokenStorage(getIt<FlutterSecureStorage>()),
+  );
 
   // Repositories
   getIt.registerLazySingleton<MovieRepository>(
@@ -34,4 +43,5 @@ void setupDependencies() {
   getIt.registerFactory<FavoriteBloc>(
     () => FavoriteBloc(getIt<FavoriteRepository>()),
   );
+  getIt.registerLazySingleton<LocaleCubit>(() => LocaleCubit());
 }

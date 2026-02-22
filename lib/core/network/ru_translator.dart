@@ -11,12 +11,19 @@ class RuTranslator {
 
   final Map<String, String> _cache = {};
 
-  Future<String> translateToRu(String text) async {
+  Future<String> translateToRu(String text) =>
+      translate(text, targetLanguage: 'ru');
+
+  Future<String> translate(
+    String text, {
+    required String targetLanguage,
+  }) async {
     final normalized = text.trim();
     if (normalized.isEmpty) return text;
-    if (_looksRussian(normalized)) return text;
+    if (targetLanguage == 'ru' && _looksRussian(normalized)) return text;
 
-    final cached = _cache[normalized];
+    final cacheKey = '$targetLanguage::$normalized';
+    final cached = _cache[cacheKey];
     if (cached != null) return cached;
 
     try {
@@ -25,7 +32,7 @@ class RuTranslator {
         queryParameters: {
           'client': 'gtx',
           'sl': 'auto',
-          'tl': 'ru',
+          'tl': targetLanguage,
           'dt': 't',
           'q': normalized,
         },
@@ -33,7 +40,7 @@ class RuTranslator {
 
       final translated = _extractTranslatedText(response.data);
       if (translated.isNotEmpty) {
-        _cache[normalized] = translated;
+        _cache[cacheKey] = translated;
         return translated;
       }
     } catch (_) {

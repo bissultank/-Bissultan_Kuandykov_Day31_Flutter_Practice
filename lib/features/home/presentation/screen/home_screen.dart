@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/localization/locale_cubit.dart';
+import '../../../../core/localization/locale_switcher.dart';
 import '../../domain/entity/movie_entity.dart';
 import '../bloc/home_bloc.dart';
 import '../widget/genre_section.dart';
-import '../../../detail/presentation/screen/detail_screen.dart';
 import '../../../favorite/presentation/bloc/favorite_bloc.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final String genreParam;
+
+  const HomeScreen({super.key, required this.genreParam});
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +28,32 @@ class _HomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Movies')),
+    final isRu = context.select((LocaleCubit cubit) {
+      return cubit.state.languageCode == 'ru';
+    });
+    final title = isRu ? 'Фильмы' : 'Movies';
+    final retry = isRu ? 'Повторить' : 'Retry';
+    final errorFallback = isRu
+        ? 'Не удалось загрузить фильмы. Проверьте интернет и попробуйте снова.'
+        : 'Failed to load movies. Check your internet and try again.';
+
+    return BlocListener<LocaleCubit, Locale>(
+      listenWhen: (previous, current) => previous != current,
+      listener: (context, _) {
+        context.read<HomeBloc>().add(const HomeFetchMovies());
+      },
+      child: Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          IconButton(
+            onPressed: () => context.push('/token/home'),
+            icon: const Icon(Icons.key_outlined),
+          ),
+          const LocaleSwitcher(),
+          const SizedBox(width: 12),
+        ],
+      ),
       body: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
           if (state is HomeLoading || state is HomeInitial) {
@@ -39,13 +67,16 @@ class _HomeView extends StatelessWidget {
                 children: [
                   const Icon(Icons.error_outline, size: 48),
                   const SizedBox(height: 12),
-                  Text(state.message, textAlign: TextAlign.center),
+                  Text(
+                    state.message == 'load_failed' ? errorFallback : state.message,
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => context
                         .read<HomeBloc>()
                         .add(const HomeFetchMovies()),
-                    child: const Text('Retry'),
+                    child: Text(retry),
                   ),
                 ],
               ),
@@ -68,11 +99,7 @@ class _HomeView extends StatelessWidget {
                         movies: entry.value,
                         favoriteIds: favoriteIds,
                         onMovieTap: (m) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => DetailScreen(movie: m),
-                            ),
-                          );
+                          context.push('/detail/${m.id}', extra: m);
                         },
                         onFavoriteTap: (m) => _toggleFavorite(
                           context,
@@ -90,7 +117,27 @@ class _HomeView extends StatelessWidget {
           return const SizedBox.shrink();
         },
       ),
-    );
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: 0,
+        onDestinationSelected: (i) {
+          if (i == 1) {
+            context.go('/favorites/all');
+          }
+        },
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.movie_outlined),
+            selectedIcon: const Icon(Icons.movie),
+            label: isRu ? 'Главная' : 'Home',
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.favorite_border),
+            selectedIcon: const Icon(Icons.favorite),
+            label: isRu ? 'Избранное' : 'Favorites',
+          ),
+        ],
+      ),
+    ));
   }
 
   void _toggleFavorite(

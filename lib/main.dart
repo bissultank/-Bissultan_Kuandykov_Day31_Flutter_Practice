@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart';
 import 'core/di/injection.dart';
+import 'core/localization/locale_cubit.dart';
+import 'core/router/app_router.dart';
 import 'core/themes/app_theme.dart';
 import 'features/favorite/presentation/bloc/favorite_bloc.dart';
-import 'features/favorite/presentation/screen/favorite_screen.dart';
-import 'features/home/presentation/screen/home_screen.dart';
+
+final _appRouter = createRouter();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,48 +21,28 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<FavoriteBloc>()..add(const FavoriteWatch()),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark(),
-        themeMode: ThemeMode.dark,
-        home: const RootTabs(),
-      ),
-    );
-  }
-}
-
-class RootTabs extends StatefulWidget {
-  const RootTabs({super.key});
-
-  @override
-  State<RootTabs> createState() => _RootTabsState();
-}
-
-class _RootTabsState extends State<RootTabs> {
-  int index = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = const [HomeScreen(), FavoriteScreen()];
-    return Scaffold(
-      body: pages[index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (i) => setState(() => index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.movie_outlined),
-            selectedIcon: Icon(Icons.movie),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_border),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Favourite',
-          ),
-        ],
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<FavoriteBloc>()..add(const FavoriteWatch())),
+        BlocProvider.value(value: getIt<LocaleCubit>()),
+      ],
+      child: BlocBuilder<LocaleCubit, Locale>(
+        builder: (context, locale) {
+          Intl.defaultLocale = locale.toLanguageTag();
+          return MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.dark(),
+            themeMode: ThemeMode.dark,
+            locale: locale,
+            supportedLocales: const [Locale('ru'), Locale('en')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: _appRouter,
+          );
+        },
       ),
     );
   }
